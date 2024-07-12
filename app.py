@@ -16,18 +16,43 @@ def allowed_file(filename):
 def compare_sheets(file1, file2, result_file):
     df1 = pd.read_excel(file1)
     df2 = pd.read_excel(file2)
+
+    # Trim column names to remove leading/trailing spaces
+    df1.columns = df1.columns.str.strip()
+    df2.columns = df2.columns.str.strip()
+
+    # Ensure 'Product' and 'Color' columns exist
+    if 'Product' not in df1.columns or 'Product' not in df2.columns:
+        raise KeyError("Both files must contain a 'Product' column.")
+    if 'Color' not in df1.columns or 'Color' not in df2.columns:
+        raise KeyError("Both files must contain a 'Color' column.")
+
+    # Add row numbers to each dataframe
     df1['Row_Number_file1'] = df1.index + 1
     df2['Row_Number_file2'] = df2.index + 1
+
+    # Perform a full outer join on the 'Product' column
     merged_df = pd.merge(df1, df2, on='Product', how='outer', suffixes=('_file1', '_file2'))
+
+    # Create a new workbook for the result
     result_wb = openpyxl.Workbook()
     result_ws = result_wb.active
     result_ws.title = "Comparison Result"
+
+    # Add a new sheet for the change log
     change_log_ws = result_wb.create_sheet(title="Change Log")
+
+    # Define fill styles for differences and missing rows
     diff_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     missing_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+
+    # Write the headers for the comparison result sheet
     result_ws.append(["Product", "Color", "Row_Number"])
+
+    # Write the headers for the change log sheet
     change_log_ws.append(["Product", "Old Value", "New Value"])
 
+    # Compare rows and handle missing rows
     for index, row in merged_df.iterrows():
         product = row['Product']
         color_file1 = row['Color_file1'] if pd.notna(row['Color_file1']) else ''
@@ -87,7 +112,10 @@ def compare():
         file1.save(file1_path)
         file2.save(file2_path)
 
-        compare_sheets(file1_path, file2_path, result_file_path)
+        try:
+            compare_sheets(file1_path, file2_path, result_file_path)
+        except KeyError as e:
+            return str(e)
 
         response = send_file(result_file_path, as_attachment=True)
 
