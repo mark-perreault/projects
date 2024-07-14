@@ -57,7 +57,7 @@ def compare_sheets(file1, file2, result_file, key_column):
     delete_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 
     # Write the headers for the comparison result sheet
-    headers = [key_column, "Status", "Row_Number"] + [f"{col}" for col in common_columns if col != key_column]
+    headers = [key_column, "Status", "Row_Number"] + [col for col in df2.columns if col != key_column]
     result_ws.append(headers)
 
     # Write the headers for the change log sheet
@@ -81,7 +81,7 @@ def compare_sheets(file1, file2, result_file, key_column):
             change_log_ws.append([key_value, '', '', '', status])
         else:
             # Compare each common column
-            for col in common_columns:
+            for col in df2.columns:
                 if col == key_column:
                     continue
                 value_old = row[f"{col}_old"] if pd.notna(row[f"{col}_old"]) else ''
@@ -91,7 +91,7 @@ def compare_sheets(file1, file2, result_file, key_column):
                     row_values.append(f"{value_old} | {value_new}")
                     change_log_ws.append([key_value, col, value_old, value_new, "Value has changed"])
                 else:
-                    row_values.append(value_old)
+                    row_values.append(value_new)
 
             if changes > 0:
                 status = f"{changes} Changes"
@@ -119,6 +119,12 @@ def compare_sheets(file1, file2, result_file, key_column):
                     result_cell.fill = diff_fill
             if changes > 0:
                 change_log_ws.cell(row=change_log_ws.max_row, column=5).fill = diff_fill
+
+    # Color the "Value has changed" rows in the change log
+    for row in change_log_ws.iter_rows(min_row=2, max_row=change_log_ws.max_row, min_col=5, max_col=5):
+        for cell in row:
+            if cell.value == "Value has changed":
+                cell.fill = diff_fill
 
     result_wb.save(result_file)
     print(f"Comparison complete. Results saved to {result_file}")
